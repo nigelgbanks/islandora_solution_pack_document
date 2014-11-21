@@ -72,7 +72,8 @@ function islandora_document_add_fulltext_derivative(AbstractObject $object, $for
     $dsid = "FULL_TEXT";
     $source = $source = drupal_realpath($file_uri);
     $executable = variable_get('islandora_document_path_to_pdftotext', '/usr/bin/pdftotext');
-    $temp = file_create_filename('fulltext.txt', 'temporary://');
+    $base_name = str_replace(':', '-', $object->id);
+    $temp = file_create_filename("{$base_name}_FULLTEXT.txt", 'temporary://');
     $derivative_file_uri = drupal_realpath($temp);
     $command = "$executable $source $derivative_file_uri";
     exec($command, $exec_out, $return_code);
@@ -379,7 +380,8 @@ function islandora_document_add_pdf_derivative(AbstractObject $object, $force = 
     $file_uri = islandora_document_get_derivative_source_as_unmanaged_file($object);
     $dsid = "PDF";
     $from = drupal_realpath($file_uri);
-    $derivative_file_uri = drupal_realpath('temporary://pdffile.pdf');
+    $base_name = str_replace(':', '-', $object->id);
+    $derivative_file_uri = drupal_realpath(file_create_filename("{$base_name}_PDF.pdf", 'temporary://'));
     if ($object['OBJ']->mimetype == 'application/pdf') {
       $success = islandora_document_add_datastream($object, $dsid, $from);
       file_unmanaged_delete($file_uri);
