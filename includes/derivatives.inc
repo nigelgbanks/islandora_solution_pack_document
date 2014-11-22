@@ -68,20 +68,21 @@ function islandora_document_add_fulltext_derivative(AbstractObject $object, $for
     if (!isset($object['PDF'])) {
       return islandora_document_no_obj_datastream($object->id);
     }
-    $file_uri = islandora_document_get_derivative_source_as_unmanaged_file($object, 'PDF');
+    $source = islandora_document_get_derivative_source_as_unmanaged_file($object, 'PDF');
     $dsid = "FULL_TEXT";
-    $source = $source = drupal_realpath($file_uri);
+    $source_real_path = drupal_realpath($source);
     $executable = variable_get('islandora_document_path_to_pdftotext', '/usr/bin/pdftotext');
     $base_name = str_replace(':', '-', $object->id);
-    $temp = file_create_filename("{$base_name}_FULLTEXT.txt", 'temporary://');
-    $derivative_file_uri = drupal_realpath($temp);
-    $command = "$executable $source $derivative_file_uri";
+    $dest = file_create_filename("{$base_name}_FULLTEXT.txt", 'temporary://');
+    $dest_real_path = drupal_realpath($dest);
+    $command = "$executable $source_real_path $dest_real_path";
     exec($command, $exec_out, $return_code);
-    file_unmanaged_delete($file_uri);
+    file_unmanaged_delete($source);
     $success = ($return_code === 0);
 
     if (!$success) {
-      $success = array(
+      file_unmanaged_delete($dest);
+      return array(
         'success' => FALSE,
         'messages' => array(
           array(
@@ -100,10 +101,11 @@ function islandora_document_add_fulltext_derivative(AbstractObject $object, $for
     }
     else {
       // Before we add this datastream let's rip out non valid XML characters.
-      $full_text = file_get_contents($derivative_file_uri);
+      $full_text = file_get_contents($dest_real_path);
       $sanitized_full_text = islandora_sanitize_input_for_valid_xml($full_text);
-      file_put_contents($derivative_file_uri, $sanitized_full_text);
-      $success = islandora_document_add_datastream($object, $dsid, $derivative_file_uri);
+      file_put_contents($dest_real_path, $sanitized_full_text);
+      $success = islandora_document_add_datastream($object, $dsid, $dest_real_path);
+      file_unmanaged_delete($dest);
       if ($success === TRUE) {
         return array(
           'success' => TRUE,
@@ -132,8 +134,6 @@ function islandora_document_add_fulltext_derivative(AbstractObject $object, $for
         );
       }
     }
-    file_unmanaged_delete($temp);
-    return $success;
   }
 }
 
@@ -187,7 +187,7 @@ function islandora_document_add_jpg_derivative(AbstractObject $object, $file_uri
     }
     if (isset($object['PDF']) && $object['PDF']->size != -1) {
       $derivative_file_uri = islandora_document_create_jpg_derivative($file_uri, $dsid, $width, $height);
-      file_unmanaged_delete($file_uri);
+      //file_unmanaged_delete($file_uri);
     }
     else {
       $derivative_file_uri = drupal_get_path('module', 'islandora_document') . "/images/folder.png";
@@ -196,7 +196,7 @@ function islandora_document_add_jpg_derivative(AbstractObject $object, $file_uri
     // Receive a valid file URI to add or an error message otherwise.
     if (!is_array($derivative_file_uri) && file_valid_uri($derivative_file_uri)) {
       $success = islandora_document_add_datastream($object, $dsid, $derivative_file_uri);
-      file_unmanaged_delete($derivative_file_uri);
+      //file_unmanaged_delete($derivative_file_uri);
       if ($success === TRUE) {
         return array(
           'success' => TRUE,
@@ -328,7 +328,7 @@ function islandora_document_add_datastream($object, $datastream_id, $file_uri) {
   catch (exception $e) {
     $return = $e->getMessage();
   }
-  file_unmanaged_delete($file_uri);
+  //file_unmanaged_delete($file_uri);
   return $return;
 }
 
@@ -384,11 +384,11 @@ function islandora_document_add_pdf_derivative(AbstractObject $object, $force = 
     $derivative_file_uri = drupal_realpath(file_create_filename("{$base_name}_PDF.pdf", 'temporary://'));
     if ($object['OBJ']->mimetype == 'application/pdf') {
       $success = islandora_document_add_datastream($object, $dsid, $from);
-      file_unmanaged_delete($file_uri);
+      //file_unmanaged_delete($file_uri);
     }
     else {
       $success = islandora_jodconverter_convert($from, $derivative_file_uri);
-      file_unmanaged_delete($file_uri);
+      //file_unmanaged_delete($file_uri);
       if ($success && file_exists($derivative_file_uri)) {
         $success = islandora_document_add_datastream($object, $dsid, $derivative_file_uri);
       }
